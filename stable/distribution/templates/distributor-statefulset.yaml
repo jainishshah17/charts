@@ -1,5 +1,5 @@
 apiVersion: apps/v1beta2
-kind: Deployment
+kind: StatefulSet
 metadata:
   name: {{ template "distributor.fullname" . }}
   labels:
@@ -10,19 +10,22 @@ metadata:
     release: {{ .Release.Name }}
 spec:
   replicas: {{ .Values.distributor.replicaCount }}
+  serviceAccountName: {{ template "distribution.serviceAccountName" . }}
+  updateStrategy:
+    type: RollingUpdate
   selector:
     matchLabels:
       app: {{ template "distribution.name" . }}
       release: {{ .Release.Name }}
-      component: {{ .Values.distributor.name }}
+      role: {{ template "distributor.name" . }}
   template:
     metadata:
       labels:
         app: {{ template "distribution.name" . }}
         component: {{ .Values.distributor.name }}
+        role: {{ template "distributor.name" . }}
         release: {{ .Release.Name }}
     spec:
-      serviceAccountName: {{ template "distribution.serviceAccountName" . }}
     {{- if .Values.imagePullSecrets }}
       imagePullSecrets:
       - name: {{ .Values.imagePullSecrets }}
@@ -56,7 +59,8 @@ spec:
         imagePullPolicy: {{ .Values.distributor.image.imagePullPolicy }}
         env:
         - name: DEFAULT_JAVA_OPTS
-          value: '-Ddistribution.home={{ .Values.distributor.persistence.mountPath }} -Dfile.encoding=UTF8 -Dcom.sun.management.jmxremote.authenticate=false
+          value: '-Ddistribution.home={{ .Values.distributor.persistence.mountPath }}
+                  -Dfile.encoding=UTF8 -Dcom.sun.management.jmxremote.authenticate=false
                   -Dcom.sun.management.jmxremote.ssl=false -Duser.timezone=UTC
                   {{- if .Values.distributor.javaOpts.xms }}
                   -Xms{{ .Values.distributor.javaOpts.xms }}
@@ -83,10 +87,29 @@ spec:
         configMap:
           name: {{ template "distributor.fullname" . }}-token
       {{- end }}
-      - name: distributor-data
-      {{- if .Values.distributor.persistence.enabled }}
-        persistentVolumeClaim:
-          claimName: {{ if .Values.distributor.persistence.existingClaim }}{{ .Values.distributor.persistence.existingClaim }}{{- else }}{{ template "distributor.fullname" . }}{{- end }}
+  {{- if .Values.distributor.persistence.enabled }}
+  volumeClaimTemplates:
+    - metadata:
+        name: distributor-data
+      spec:
+      {{- if .Values.distributor.persistence.existingClaim }}
+        selector:
+          matchLabels:
+            app: {{ template "distributor.name" . }}
       {{- else }}
+        {{- if .Values.distributor.persistence.storageClass }}
+        {{- if (eq "-" .Values.distributor.persistence.storageClass) }}
+        storageClassName: ""
+        {{- else }}
+        storageClassName: "{{ .Values.distributor.persistence.storageClass }}"
+        {{- end }}
+        {{- end }}
+        accessModes: [ "{{ .Values.distributor.persistence.accessMode }}" ]
+        resources:
+          requests:
+            storage: {{ .Values.distributor.persistence.size }}
+      {{- end }}
+  {{- else }}
+      - name: distributor-data
         emptyDir: {}
-      {{- end -}}
+  {{- end }}

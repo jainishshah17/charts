@@ -1,5 +1,5 @@
 apiVersion: apps/v1beta2
-kind: Deployment
+kind: StatefulSet
 metadata:
   name: {{ template "distribution.fullname" . }}
   labels:
@@ -10,19 +10,22 @@ metadata:
     release: {{ .Release.Name }}
 spec:
   replicas: {{ .Values.distribution.replicaCount }}
+  serviceAccountName: {{ template "distribution.serviceAccountName" . }}
+  updateStrategy:
+    type: RollingUpdate
   selector:
     matchLabels:
       app: {{ template "distribution.name" . }}
       release: {{ .Release.Name }}
-      component: {{ .Values.distribution.name }}
+      role: {{ template "distribution.name" . }}
   template:
     metadata:
       labels:
         app: {{ template "distribution.name" . }}
         component: {{ .Values.distribution.name }}
+        role: {{ template "distribution.name" . }}
         release: {{ .Release.Name }}
     spec:
-      serviceAccountName: {{ template "distribution.serviceAccountName" . }}
     {{- if .Values.imagePullSecrets }}
       imagePullSecrets:
       - name: {{ .Values.imagePullSecrets }}
@@ -110,10 +113,29 @@ spec:
           initialDelaySeconds: 180
           periodSeconds: 10
       volumes:
-      - name: distribution-data
-      {{- if .Values.distribution.persistence.enabled }}
-        persistentVolumeClaim:
-          claimName: {{ if .Values.distribution.persistence.existingClaim }}{{ .Values.distribution.persistence.existingClaim }}{{- else }}{{ template "distribution.fullname" . }}{{- end }}
+  {{- if .Values.distribution.persistence.enabled }}
+  volumeClaimTemplates:
+    - metadata:
+        name: distribution-data
+      spec:
+      {{- if .Values.distribution.persistence.existingClaim }}
+        selector:
+          matchLabels:
+            app: {{ template "distribution.name" . }}
       {{- else }}
+        {{- if .Values.distribution.persistence.storageClass }}
+        {{- if (eq "-" .Values.distribution.persistence.storageClass) }}
+        storageClassName: ""
+        {{- else }}
+        storageClassName: "{{ .Values.distribution.persistence.storageClass }}"
+        {{- end }}
+        {{- end }}
+        accessModes: [ "{{ .Values.distribution.persistence.accessMode }}" ]
+        resources:
+          requests:
+            storage: {{ .Values.distribution.persistence.size }}
+      {{- end }}
+  {{- else }}
+      - name: distribution-data
         emptyDir: {}
-      {{- end -}}
+  {{- end }}
