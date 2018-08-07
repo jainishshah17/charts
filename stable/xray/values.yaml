@@ -133,7 +133,7 @@ rabbitmq-ha:
 
 common:
   ## To make Xray Highly Available scale replicaCount to 2 or more
-  replicaCount: 3
+  replicaCount: 1
   ## Note that by default we use appVersion to get image tag
   # xrayVersion: 2.2.4
   xrayConfigPath: /var/opt/jfrog/xray/data
@@ -161,7 +161,7 @@ analysis:
   service:
     type: ClusterIP
   persistence:
-    enabled: true
+    enabled: false
     accessMode: ReadWriteOnce
     size: 10Gi
     ## A manually managed Persistent Volume and Claim
@@ -193,7 +193,7 @@ indexer:
   service:
     type: ClusterIP
   persistence:
-    enabled: true
+    enabled: false
     accessMode: ReadWriteOnce
     size: 10Gi
     ## Xray data Persistent Volume Storage Class
@@ -205,9 +205,6 @@ indexer:
     ##
     # storageClass: "-"
 
-  ## Container storage limit
-  storage:
-    sizeLimit: 10Gi
   resources: {}
   #  requests:
   #    memory: "1Gi"
@@ -224,7 +221,7 @@ persist:
   service:
     type: ClusterIP
   persistence:
-    enabled: true
+    enabled: false
     accessMode: ReadWriteOnce
     size: 10Gi
     ## Xray data Persistent Volume Storage Class
@@ -236,9 +233,6 @@ persist:
     ##
     # storageClass: "-"
 
-  ## Container storage limit
-  storage:
-    sizeLimit: 10Gi
   resources: {}
   #  requests:
   #    memory: "1Gi"
@@ -256,7 +250,7 @@ server:
     type: LoadBalancer
     name: xray
   persistence:
-    enabled: true
+    enabled: false
     accessMode: ReadWriteOnce
     size: 10Gi
     ## Xray data Persistent Volume Storage Class
@@ -267,9 +261,7 @@ server:
     ##   GKE, AWS & OpenStack)
     ##
     # storageClass: "-"
-  ## Container storage limit
-  storage:
-    sizeLimit: 10Gi
+
   # Whitelist IPs allowed to LoadBalancer type services
   # Example: loadBalancerSourceRanges={82.82.190.51/32,141.141.8.8/32}
   loadBalancerSourceRanges: []
