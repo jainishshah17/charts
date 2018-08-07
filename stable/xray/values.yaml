@@ -4,7 +4,6 @@
 # Access the values with {{ .Values.key.subkey }}
 
 # Common
-replicaCount: 1
 imagePullPolicy: IfNotPresent
 initContainerImage: "alpine:3.6"
 imagePullSecrets:
@@ -59,6 +58,8 @@ postgresql:
   postgresDatabase: "xraydb"
   postgresUser: "xray"
   postgresPassword:
+  postgresConfig:
+    maxConnections: "1500"
   service:
     port: 5432
   persistence:
@@ -131,7 +132,10 @@ rabbitmq-ha:
     create: true
 
 common:
-  xrayVersion: 2.2.4
+  ## To make Xray Highly Available scale replicaCount to 2 or more
+  replicaCount: 3
+  ## Note that by default we use appVersion to get image tag
+  # xrayVersion: 2.2.4
   xrayConfigPath: /var/opt/jfrog/xray/data
   xrayUserId: 1035
   xrayGroupId: 1035
@@ -156,9 +160,23 @@ analysis:
   externalPort: 7000
   service:
     type: ClusterIP
-  ## Container storage limit
-  storage:
-    sizeLimit: 10Gi
+  persistence:
+    enabled: true
+    accessMode: ReadWriteOnce
+    size: 10Gi
+    ## A manually managed Persistent Volume and Claim
+    ## Requires persistence.enabled: true
+    ## If defined, PVC must be created manually before volume will be bound with the name e.g ``
+    # existingClaim:
+
+    ## Xray data Persistent Volume Storage Class
+    ## If defined, storageClassName: <storageClass>
+    ## If set to "-", storageClassName: "", which disables dynamic provisioning
+    ## If undefined (the default) or set to null, no storageClassName spec is
+    ##   set, choosing the default provisioner.  (gp2 on AWS, standard on
+    ##   GKE, AWS & OpenStack)
+    ##
+    # storageClass: "-"
   resources: {}
   #  requests:
   #    memory: "1Gi"
@@ -174,6 +192,19 @@ indexer:
   externalPort: 7002
   service:
     type: ClusterIP
+  persistence:
+    enabled: true
+    accessMode: ReadWriteOnce
+    size: 10Gi
+    ## Xray data Persistent Volume Storage Class
+    ## If defined, storageClassName: <storageClass>
+    ## If set to "-", storageClassName: "", which disables dynamic provisioning
+    ## If undefined (the default) or set to null, no storageClassName spec is
+    ##   set, choosing the default provisioner.  (gp2 on AWS, standard on
+    ##   GKE, AWS & OpenStack)
+    ##
+    # storageClass: "-"
+
   ## Container storage limit
   storage:
     sizeLimit: 10Gi
@@ -192,6 +223,19 @@ persist:
   externalPort: 7003
   service:
     type: ClusterIP
+  persistence:
+    enabled: true
+    accessMode: ReadWriteOnce
+    size: 10Gi
+    ## Xray data Persistent Volume Storage Class
+    ## If defined, storageClassName: <storageClass>
+    ## If set to "-", storageClassName: "", which disables dynamic provisioning
+    ## If undefined (the default) or set to null, no storageClassName spec is
+    ##   set, choosing the default provisioner.  (gp2 on AWS, standard on
+    ##   GKE, AWS & OpenStack)
+    ##
+    # storageClass: "-"
+
   ## Container storage limit
   storage:
     sizeLimit: 10Gi
@@ -211,6 +255,18 @@ server:
   service:
     type: LoadBalancer
     name: xray
+  persistence:
+    enabled: true
+    accessMode: ReadWriteOnce
+    size: 10Gi
+    ## Xray data Persistent Volume Storage Class
+    ## If defined, storageClassName: <storageClass>
+    ## If set to "-", storageClassName: "", which disables dynamic provisioning
+    ## If undefined (the default) or set to null, no storageClassName spec is
+    ##   set, choosing the default provisioner.  (gp2 on AWS, standard on
+    ##   GKE, AWS & OpenStack)
+    ##
+    # storageClass: "-"
   ## Container storage limit
   storage:
     sizeLimit: 10Gi

@@ -1,5 +1,5 @@
 apiVersion: apps/v1beta2
-kind: Deployment
+kind: StatefulSet
 metadata:
   name: {{ template "xray-persist.fullname" . }}
   labels:
@@ -9,17 +9,22 @@ metadata:
     release: {{ .Release.Name }}
     component: {{ .Values.persist.name }}
 spec:
-  replicas: {{ .Values.replicaCount }}
+  serviceName: {{ template "xray-persist.name" . }}
+  replicas: {{ .Values.common.replicaCount }}
+  updateStrategy:
+    type: RollingUpdate
   selector:
     matchLabels:
       app: {{ template "xray.name" . }}
       release: {{ .Release.Name }}
+      role: {{ template "xray-persist.name" . }}
       component: {{ .Values.persist.name }}
   template:
     metadata:
       labels:
         app: {{ template "xray.name" . }}
         release: {{ .Release.Name }}
+        role: {{ template "xray-persist.name" . }}
         component: {{ .Values.persist.name }}
     spec:
     {{- if .Values.imagePullSecrets }}
@@ -82,13 +87,13 @@ spec:
           chmod +x {{ .Values.common.xrayConfigPath }}/setup.sh;
           {{ .Values.common.xrayConfigPath }}/setup.sh;
         volumeMounts:
-        - name: data-volume
+        - name: persist-volume
           mountPath: "{{ .Values.common.xrayConfigPath }}"
         - name: setup
           mountPath: "/scripts"
       containers:
       - name: {{ .Values.persist.name }}
-        image: {{ .Values.persist.image }}:{{ .Values.common.xrayVersion }}
+        image: {{ .Values.persist.image }}:{{ default .Chart.AppVersion .Values.common.xrayVersion }}
         imagePullPolicy: {{ .Values.imagePullPolicy }}
         env:
         - name: XRAYCONFIGPATH
@@ -105,7 +110,7 @@ spec:
         ports:
         - containerPort: {{ .Values.persist.internalPort }}
         volumeMounts:
-        - name: data-volume
+        - name: persist-volume
           mountPath: "{{ .Values.common.xrayConfigPath }}"
         securityContext:
           allowPrivilegeEscalation: false
@@ -125,12 +130,33 @@ spec:
           initialDelaySeconds: 90
           periodSeconds: 10
       volumes:
-      - name: data-volume
-        emptyDir:
-          sizeLimit: {{ .Values.persist.storage.sizeLimit }}
-      - name: config-volume
-        emptyDir:
-          sizeLimit: 1Gi
       - name: setup
         configMap:
           name: {{ template "xray.fullname" . }}-setup
+      {{- if .Values.persist.persistence.enabled }}
+  volumeClaimTemplates:
+  - metadata:
+      name: persist-volume
+    spec:
+    {{- if .Values.persist.persistence.existingClaim }}
+      selector:
+        matchLabels:
+          app: {{ template "xray-persist.name" . }}
+    {{- else }}
+      {{- if .Values.persist.persistence.storageClass }}
+      {{- if (eq "-" .Values.persist.persistence.storageClass) }}
+      storageClassName: ""
+      {{- else }}
+      storageClassName: "{{ .Values.persist.persistence.storageClass }}"
+      {{- end }}
+      {{- end }}
+      accessModes: [ "{{ .Values.persist.persistence.accessMode }}" ]
+      resources:
+        requests:
+          storage: {{ .Values.persist.persistence.size }}
+    {{- end }}
+      {{- else }}
+      - name: persist-volume
+        emptyDir:
+          sizeLimit: {{ .Values.persist.persistence.size }}
+      {{- end }}
